@@ -4,6 +4,7 @@ import re
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import MessageEntityType
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ChatMemberUpdated
@@ -14,7 +15,7 @@ from src.configuration import conf
 
 async def start_bot():
     """启动 bot 并监听消息"""
-    bot = Bot(token=conf.bot.token, default=DefaultBotProperties(parse_mode='HTML'))
+    bot = Bot(token=conf.bot.token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
     dp = Dispatcher()  # 创建 Dispatcher（消息管理器）
     dify: Dify = Dify(conf.dify.api_key, conf.dify.base_url)
 
@@ -31,14 +32,42 @@ async def start_bot():
     async def echo_handler(message: Message, state: FSMContext):
         """监听所有文本消息，并原样返回"""
         state_data: dict = await state.get_data()
-        conversation_id: str = state_data.get('conversation_id')
+        chat = message.chat
+        user_id = message.from_user.id
+        result = None
+
+        if chat.type in ["group", "supergroup"]:
+            chat_id = chat.id
+            mention_me = False
+
+            # 检测是否被@提及
+            if message.entities:
+                for entity in message.entities:
+                    if entity.type in [MessageEntityType.MENTION, MessageEntityType.TEXT_MENTION]:
+                        mention_me = True
+                        break
+
+            if mention_me:
+                result = f"{chat_id}-{user_id}"
+            else:
+                result = str(chat_id)
+
+        elif chat.type == "private":
+            result = str(user_id)
+        conversation_id: str|None = None
+        if result:
+            conversation_id = state_data.get(result)
+            user_id = result
         if message.text is None:
             return
         response = await dify.send_streaming_chat_message(
             message=message.text,
-            user_id=message.from_user.id,
+            user_id=user_id,
             conversation_id=conversation_id,
         )
+        if conversation_id is None:
+            if result and response.conversation_id:
+                await state.update_data({result: response.conversation_id})  # 存储 UUID
         if response.need_response:
             await message.reply(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
 
