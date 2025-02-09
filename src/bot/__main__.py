@@ -1,12 +1,12 @@
 import asyncio
 import logging
+import re
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ChatMemberUpdated
-from aiogram.utils.text_decorations import MarkdownDecoration
 
 from src.agent.client import Dify
 from src.configuration import conf
@@ -40,7 +40,7 @@ async def start_bot():
             conversation_id=conversation_id,
         )
         if response.need_response:
-            await message.reply(MarkdownDecoration().quote(response.message), parse_mode="MarkdownV2")
+            await message.reply(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
 
     @dp.chat_member()
     async def welcome_handler(event: ChatMemberUpdated):
@@ -55,16 +55,53 @@ async def start_bot():
                 new_member_name=new_member_name
             )
             if response.need_response:
-                parts = response.message.split(new_member_name)
-                resp_text: str = ""
-                for i, part in enumerate(parts):
-                    resp_text += MarkdownDecoration().quote(part)
-                    if i < len(parts) - 1:
-                        resp_text += new_member_name
-                await event.answer(resp_text, parse_mode="MarkdownV2")
+                await event.answer(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
 
     # 启动 bot
     await dp.start_polling(bot)
+
+
+def escape_markdown_v2(text: str) -> str:
+    """
+    保留 MarkdownV2 结构（链接、粗体、斜体、代码块），转义其他部分的特殊字符
+    """
+    # 匹配 MarkdownV2 的核心结构（非贪婪匹配）
+    pattern = re.compile(
+        r'(\[.*?\]\(.*?\))'  # 链接 [text](url)
+        r'|(\*.*?\*)'  # 粗体 *text*
+        r'|(_.*?_)'  # 斜体 _text_
+        r'|(`.*?`)'  # 行内代码 `text`
+        r'|(```.*?```)'  # 多行代码块（需配合 re.DOTALL）
+        , re.DOTALL)
+
+    parts = []
+    last_end = 0
+
+    for match in pattern.finditer(text):
+        start = match.start()
+        end = match.end()
+
+        # 转义非结构化的普通文本
+        if start > last_end:
+            plain_text = text[last_end:start]
+            parts.append(_escape_plain_text(plain_text))
+
+        # 保留 Markdown 结构
+        parts.append(match.group())
+        last_end = end
+
+    # 处理剩余文本
+    if last_end < len(text):
+        plain_text = text[last_end:]
+        parts.append(_escape_plain_text(plain_text))
+
+    return ''.join(parts)
+
+
+def _escape_plain_text(text: str) -> str:
+    """转义普通文本中的 MarkdownV2 特殊字符"""
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
 
 
 if __name__ == "__main__":
