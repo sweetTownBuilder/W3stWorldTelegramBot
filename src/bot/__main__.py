@@ -11,11 +11,13 @@ from aiogram.utils.text_decorations import MarkdownDecoration
 from src.agent.client import Dify
 from src.configuration import conf
 
+
 async def start_bot():
     """启动 bot 并监听消息"""
     bot = Bot(token=conf.bot.token, default=DefaultBotProperties(parse_mode='HTML'))
     dp = Dispatcher()  # 创建 Dispatcher（消息管理器）
-    dify: Dify = Dify(conf.dify.api_key)
+    dify: Dify = Dify(conf.dify.api_key, conf.dify.base_url)
+
     # 注册命令处理器
     @dp.message(Command("start"))
     async def start_handler(message: Message):
@@ -54,7 +56,7 @@ async def start_bot():
             )
             if response.need_response:
                 parts = response.message.split(new_member_name)
-                resp_text:str = ""
+                resp_text: str = ""
                 for i, part in enumerate(parts):
                     resp_text += MarkdownDecoration().quote(part)
                     if i < len(parts) - 1:
@@ -63,6 +65,7 @@ async def start_bot():
 
     # 启动 bot
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=conf.logging_level)

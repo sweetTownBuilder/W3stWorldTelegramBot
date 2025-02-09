@@ -6,9 +6,9 @@ logger = logging.getLogger(__name__)
 
 
 class Dify(BaseClient):
-    def __init__(self, api_key: str, **kwargs):
+    def __init__(self, api_key: str, base_url: str, **kwargs):
         self.api_key = api_key
-        self.base_url = "https://dify.w3stworld.io"
+        self.base_url = base_url
         super().__init__(base_url=self.base_url)
 
     async def send_streaming_chat_message(
