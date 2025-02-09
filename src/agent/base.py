@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 class Response:
     need_response: bool
     message: str
+    conversation_id: str
 
 
 # Taken from here: https://github.com/Olegt0rr/WebServiceTemplate/blob/main/app/core/base_client.py
@@ -86,8 +87,8 @@ class BaseClient:
                         if event_type == "agent_message":
                             message += data.get("answer", "")
                         elif event_type == "message_end":
-                            data = json.loads(message)
-                            return Response(**data)
+                            message_obj = json.loads(message)
+                            return Response(**message_obj, conversation_id=data.get("conversation_id"))
                     except json.JSONDecodeError:
                         continue
             return Response(need_response=False, message="")
