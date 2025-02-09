@@ -63,7 +63,7 @@ async def start_bot():
 
 def escape_markdown_v2(text: str) -> str:
     """
-    保留 MarkdownV2 结构（链接、粗体、斜体、代码块），转义其他部分的特殊字符
+    保留 MarkdownV2 结构（链接、粗体等），转义其他部分的保留字符
     """
     # 匹配 MarkdownV2 的核心结构（非贪婪匹配）
     pattern = re.compile(
@@ -71,7 +71,7 @@ def escape_markdown_v2(text: str) -> str:
         r'|(\*.*?\*)'  # 粗体 *text*
         r'|(_.*?_)'  # 斜体 _text_
         r'|(`.*?`)'  # 行内代码 `text`
-        r'|(```.*?```)'  # 多行代码块（需配合 re.DOTALL）
+        r'|(```[\s\S]*?```)'  # 多行代码块（使用 [\s\S] 匹配任意字符）
         , re.DOTALL)
 
     parts = []
@@ -99,8 +99,9 @@ def escape_markdown_v2(text: str) -> str:
 
 
 def _escape_plain_text(text: str) -> str:
-    """转义普通文本中的 MarkdownV2 特殊字符"""
-    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    """转义普通文本中的 MarkdownV2 保留字符"""
+    # 注意：将连字符 - 放在字符类开头或结尾，避免被识别为范围符号
+    escape_chars = r'_*[]()~`>#+=|{}.!-'  # 包含所有保留字符
     return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
 
 
