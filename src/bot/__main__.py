@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 import re
 
 from aiogram import Bot, Dispatcher
@@ -86,6 +87,28 @@ async def start_bot():
             if response.need_response:
                 await event.answer(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
 
+    async def send_daily_random_messages():
+        while True:
+            if conf.bot.tg_group_id:
+                response = await dify.send_streaming_chat_message(
+                    message="Tell a piece of trending news in the field of crypto memecoins，preferably news about a "
+                            "price of a memecoin went up trenmendously or someone make a huge returns on a memcoin. "
+                            "News should have a clear and specific protagonist, not a general study of the field. If "
+                            "appropriate, you may open with an interactive question as greetings such as \"Anyone "
+                            "wants to hear an exciting news about ... ?\". If appropriate, you may end with a "
+                            "suggestion about what people should do upon hearing the news. Your tone depicting the "
+                            "news itself should be concise and professional but your overall tone should be casual "
+                            "and friendly.",
+                    user_id=conf.bot.tg_group_id,
+                    conversation_id=None,
+                    new_member_name=None
+                )
+                if response.need_response and conf.bot.tg_group_id:
+                    logging.info(response.message)
+                    await bot.send_message(text=escape_markdown_v2(response.message),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
+            await asyncio.sleep(random.randint(60 * 60 * 3, 60 * 60 * 5))  # Sleep for a random 5-6 hours
+
+    asyncio.create_task(send_daily_random_messages())
     # 启动 bot
     await dp.start_polling(bot)
 
@@ -136,4 +159,7 @@ def _escape_plain_text(text: str) -> str:
 
 if __name__ == "__main__":
     logging.basicConfig(level=conf.logging_level)
-    asyncio.run(start_bot())
+    try:
+        asyncio.run(start_bot())
+    except KeyboardInterrupt:
+        logging.info("程序已手动中断。")
