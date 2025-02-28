@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import random
 import re
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import MessageEntityType
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ChatMemberUpdated
@@ -14,7 +16,7 @@ from src.configuration import conf
 
 async def start_bot():
     """启动 bot 并监听消息"""
-    bot = Bot(token=conf.bot.token, default=DefaultBotProperties(parse_mode='HTML'))
+    bot = Bot(token=conf.bot.token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
     dp = Dispatcher()  # 创建 Dispatcher（消息管理器）
     dify: Dify = Dify(conf.dify.api_key, conf.dify.base_url)
 
@@ -31,16 +33,46 @@ async def start_bot():
     async def echo_handler(message: Message, state: FSMContext):
         """监听所有文本消息，并原样返回"""
         state_data: dict = await state.get_data()
-        conversation_id: str = state_data.get('conversation_id')
+        chat = message.chat
+        user_id = message.from_user.id
+        result = None
+
+        mention_me = False
+        if chat.type in ["group", "supergroup"]:
+            chat_id = chat.id
+
+            # 检测是否被@提及
+            if message.entities:
+                for entity in message.entities:
+                    if entity.type in [MessageEntityType.MENTION, MessageEntityType.TEXT_MENTION]:
+                        mention_me = True
+                        break
+
+            if mention_me:
+                result = f"{chat_id}-{user_id}"
+            else:
+                result = str(chat_id)
+
+        elif chat.type == "private":
+            result = str(user_id)
+            mention_me = True
+        conversation_id: str|None = None
+        if result:
+            conversation_id = state_data.get(result)
+            user_id = result
         if message.text is None:
             return
-        response = await dify.send_streaming_chat_message(
-            message=message.text,
-            user_id=message.from_user.id,
-            conversation_id=conversation_id,
-        )
-        if response.need_response:
-            await message.reply(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
+        if mention_me:
+            response = await dify.send_streaming_chat_message(
+                message=message.text,
+                user_id=user_id,
+                conversation_id=conversation_id,
+            )
+            if conversation_id is None:
+                if result and response.conversation_id:
+                    await state.update_data({result: response.conversation_id})  # 存储 UUID
+            if response.need_response:
+                await message.reply(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
 
     @dp.chat_member()
     async def welcome_handler(event: ChatMemberUpdated):
@@ -57,6 +89,28 @@ async def start_bot():
             if response.need_response:
                 await event.answer(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
 
+    async def send_daily_random_messages():
+        while True:
+            if conf.bot.tg_group_id:
+                response = await dify.send_streaming_chat_message(
+                    message="Tell a piece of trending news in the field of crypto memecoins，preferably news about a "
+                            "price of a memecoin went up trenmendously or someone make a huge returns on a memcoin. "
+                            "News should have a clear and specific protagonist, not a general study of the field. If "
+                            "appropriate, you may open with an interactive question as greetings such as \"Anyone "
+                            "wants to hear an exciting news about ... ?\". If appropriate, you may end with a "
+                            "suggestion about what people should do upon hearing the news. Your tone depicting the "
+                            "news itself should be concise and professional but your overall tone should be casual "
+                            "and friendly.",
+                    user_id=conf.bot.tg_group_id,
+                    conversation_id=None,
+                    new_member_name=None
+                )
+                if response.need_response and conf.bot.tg_group_id:
+                    logging.info(response.message)
+                    await bot.send_message(text=escape_markdown_v2(response.message),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
+            await asyncio.sleep(random.randint(60 * 60 * 3, 60 * 60 * 5))  # Sleep for a random 5-6 hours
+
+    asyncio.create_task(send_daily_random_messages())
     # 启动 bot
     await dp.start_polling(bot)
 
@@ -107,4 +161,7 @@ def _escape_plain_text(text: str) -> str:
 
 if __name__ == "__main__":
     logging.basicConfig(level=conf.logging_level)
-    asyncio.run(start_bot())
+    try:
+        asyncio.run(start_bot())
+    except KeyboardInterrupt:
+        logging.info("程序已手动中断。")

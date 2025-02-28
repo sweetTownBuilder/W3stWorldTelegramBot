@@ -13,6 +13,7 @@ class BotConfig:
     """Bot configuration."""
 
     token: str = os.getenv('BOT_TOKEN')
+    tg_group_id: str = os.getenv('TG_GROUP_ID')
     DEFAULT_LOCALE: str = 'en'
 
 
