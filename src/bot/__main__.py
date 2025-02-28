@@ -37,9 +37,9 @@ async def start_bot():
         user_id = message.from_user.id
         result = None
 
+        mention_me = False
         if chat.type in ["group", "supergroup"]:
             chat_id = chat.id
-            mention_me = False
 
             # 检测是否被@提及
             if message.entities:
@@ -55,22 +55,24 @@ async def start_bot():
 
         elif chat.type == "private":
             result = str(user_id)
+            mention_me = True
         conversation_id: str|None = None
         if result:
             conversation_id = state_data.get(result)
             user_id = result
         if message.text is None:
             return
-        response = await dify.send_streaming_chat_message(
-            message=message.text,
-            user_id=user_id,
-            conversation_id=conversation_id,
-        )
-        if conversation_id is None:
-            if result and response.conversation_id:
-                await state.update_data({result: response.conversation_id})  # 存储 UUID
-        if response.need_response:
-            await message.reply(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
+        if mention_me:
+            response = await dify.send_streaming_chat_message(
+                message=message.text,
+                user_id=user_id,
+                conversation_id=conversation_id,
+            )
+            if conversation_id is None:
+                if result and response.conversation_id:
+                    await state.update_data({result: response.conversation_id})  # 存储 UUID
+            if response.need_response:
+                await message.reply(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
 
     @dp.chat_member()
     async def welcome_handler(event: ChatMemberUpdated):
