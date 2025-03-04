@@ -15,6 +15,8 @@ class Dify(BaseClient):
             self,
             message: str,
             user_id: int,
+            user_name: str = 'telegram',
+            telegram_chat_type: str = 'chat',
             conversation_id: str = None,
             new_member_name: str | None = None,
     ) -> Response:
@@ -27,7 +29,11 @@ class Dify(BaseClient):
                 "conversation_id": conversation_id if conversation_id else '',
                 "user": user_id,
                 "inputs": {
-                    "new_member_name": new_member_name
+                    "run_type": "chat",
+                    "chat_place": "telegram",
+                    "user_name": user_name,
+                    "new_member_name": new_member_name,
+                    "telegram_chat_type": telegram_chat_type,
                 }
             },
             headers={'Authorization': f'Bearer {self.api_key}'}

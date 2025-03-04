@@ -67,6 +67,7 @@ async def start_bot():
                 message=message.text,
                 user_id=user_id,
                 conversation_id=conversation_id,
+                user_name=message.from_user.username,
             )
             if conversation_id is None:
                 if result and response.conversation_id:
@@ -84,7 +85,8 @@ async def start_bot():
                 message="new member join the group",
                 user_id=event.from_user.id,
                 conversation_id=None,
-                new_member_name=new_member_name
+                new_member_name=new_member_name,
+                user_name=member_name,
             )
             if response.need_response:
                 await event.answer(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
@@ -103,7 +105,8 @@ async def start_bot():
                             "and friendly.",
                     user_id=conf.bot.tg_group_id,
                     conversation_id=None,
-                    new_member_name=None
+                    new_member_name=None,
+                    telegram_chat_type="ask_for_news",
                 )
                 if response.need_response and conf.bot.tg_group_id:
                     logging.info(response.message)

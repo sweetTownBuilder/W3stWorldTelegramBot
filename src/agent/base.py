@@ -84,14 +84,14 @@ class BaseClient:
                         data = json.loads(line.decode("utf-8").replace("data: ", ""))
                         event_type = data.get("event")
 
-                        if event_type == "agent_message":
+                        if event_type == "message":
                             message += data.get("answer", "")
                         elif event_type == "message_end":
                             message_obj = json.loads(message)
                             return Response(**message_obj, conversation_id=data.get("conversation_id"))
                     except json.JSONDecodeError:
                         continue
-            return Response(need_response=False, message="")
+            return Response(need_response=False, message="", conversation_id='')
 
     async def close(self) -> None:
         """Graceful session close."""
