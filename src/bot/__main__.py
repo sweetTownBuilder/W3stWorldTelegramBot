@@ -87,6 +87,7 @@ async def start_bot():
                 conversation_id=None,
                 new_member_name=new_member_name,
                 user_name=member_name,
+                telegram_chat_type="welcome",
             )
             if response.need_response:
                 await event.answer(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
@@ -122,13 +123,16 @@ def escape_markdown_v2(text: str) -> str:
     """
     保留 MarkdownV2 结构（链接、粗体等），转义其他部分的保留字符
     """
-    # 匹配 MarkdownV2 的核心结构（非贪婪匹配）
+    # 匹配 MarkdownV2 的核心结构（非贪婪匹配，优先处理链接）
     pattern = re.compile(
-        r'(\[.*?\]\(.*?\))'  # 链接 [text](url)
-        r'|(\*.*?\*)'  # 粗体 *text*
-        r'|(_.*?_)'  # 斜体 _text_
-        r'|(`.*?`)'  # 行内代码 `text`
-        r'|(```[\s\S]*?```)'  # 多行代码块（使用 [\s\S] 匹配任意字符）
+        r'(\[.*?\]\(\S*?\))'      # 链接 [text](url)，URL中不允许空格
+        r'|(\*\*.*?\*\*)'          # 粗体 **text**
+        r'|(\*.*?\*)'              # 斜体 *text*
+        r'|(__.*?__)'              # 下划线 __text__
+        r'|(_.*?_)'                # 斜体 _text_
+        r'|(`.*?`)'                # 行内代码 `text`
+        r'|(```[\s\S]*?```)'       # 多行代码块
+        r'|\\n'                    # 换行
         , re.DOTALL)
 
     parts = []
@@ -142,9 +146,30 @@ def escape_markdown_v2(text: str) -> str:
         if start > last_end:
             plain_text = text[last_end:start]
             parts.append(_escape_plain_text(plain_text))
-
-        # 保留 Markdown 结构
-        parts.append(match.group())
+        group_text = match.group()
+        if match := re.match(r'\[(.*?)\]\((\S*?)\)', group_text, re.DOTALL):
+            link_text = match.group(1)
+            link_url = match.group(2)
+            parts.append(f'[{_escape_plain_text(link_text)}]({_escape_plain_text(link_url)})')
+        elif match := re.match(r'\*\*(.*?)\*\*', group_text, re.DOTALL):
+            txt = match.group(1)
+            parts.append(f'**{_escape_plain_text(txt)}**')
+        elif match := re.match(r'__(.*?)__', group_text, re.DOTALL):
+            txt = match.group(1)
+            parts.append(f'__{_escape_plain_text(txt)}__')
+        elif match := re.match(r'_(.*?)_', group_text):
+            txt = match.group(1)
+            parts.append(f'_{_escape_plain_text(txt)}_')
+        elif match := re.match(r'`(.*?)`', group_text):
+            txt = match.group(1)
+            parts.append(f'`{_escape_plain_text(txt)}`')
+        elif match := re.match(r'```([\s\S]*?)```', group_text):
+            txt = match.group(1)
+            parts.append(f'```{_escape_plain_text(txt)}```')
+        elif re.match(r'\\n', group_text):
+            parts.append(f'\n')
+        else:
+            parts.append(group_text)
         last_end = end
 
     # 处理剩余文本
@@ -157,9 +182,7 @@ def escape_markdown_v2(text: str) -> str:
 
 def _escape_plain_text(text: str) -> str:
     """转义普通文本中的 MarkdownV2 保留字符"""
-    # 注意：将连字符 - 放在字符类开头或结尾，避免被识别为范围符号
-    escape_chars = r'_*[]()~`>#+=|{}.!-'  # 包含所有保留字符
-    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
+    return re.sub(pattern=re.compile(r"([_*\[\]()~`>#+\-=|{}.!\\])"), repl=r'\\\1', string=text)
 
 
 if __name__ == "__main__":
