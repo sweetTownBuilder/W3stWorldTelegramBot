@@ -11,14 +11,18 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ChatMemberUpdated
 
 from src.agent.client import Dify
+from src.agent.news_client import Dify as NewsDify
 from src.configuration import conf
 
 
 async def start_bot():
     """启动 bot 并监听消息"""
-    bot = Bot(token=conf.bot.token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
+    bot_clementine = Bot(token=conf.bot.token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
+    bot_maeve = Bot(token=conf.bot.maeve_token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
+    bot_teddy = Bot(token=conf.bot.teddy_token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
     dp = Dispatcher()  # 创建 Dispatcher（消息管理器）
     dify: Dify = Dify(conf.dify.api_key, conf.dify.base_url)
+    news_client: NewsDify = NewsDify(conf.news.api_key, conf.news.base_url)
 
     # 注册命令处理器
     @dp.message(Command("start"))
@@ -95,25 +99,28 @@ async def start_bot():
     async def send_daily_random_messages():
         while True:
             if conf.bot.tg_group_id:
-                response = await dify.send_streaming_chat_message(
-                    message="Tell a piece of trending news in the field of crypto memecoins，preferably news about a "
-                            "price of a memecoin went up trenmendously or someone make a huge returns on a memcoin. "
-                            "News should have a clear and specific protagonist, not a general study f the field. If "
-                            "appropriate, you may end with a suggestion about what people should do upon hearing the "
-                            "news.",
+                response = await news_client.send_streaming_chat_message(
+                    message="get today news.",
                     user_id=conf.bot.tg_group_id,
                     conversation_id=None,
                     new_member_name=None,
                     telegram_chat_type="ask_for_news",
                 )
-                if response.need_response and conf.bot.tg_group_id:
-                    logging.info(response.message)
-                    await bot.send_message(text=escape_markdown_v2(response.message),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
+                for conversation in response.conversations:
+                    # sleep conversation.delayTime seconds
+                    await asyncio.sleep(conversation.delayTime * 10)
+                    if conversation.user == "maeve":
+                        # use telegram bot api to send message
+                        await bot_maeve.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
+                    elif conversation.user == "teddy":
+                        await bot_teddy.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
+                    elif conversation.user == "clementine":
+                        await bot_clementine.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
             await asyncio.sleep(random.randint(60 * 60 * 3, 60 * 60 * 5))  # Sleep for a random 5-6 hours
 
     asyncio.create_task(send_daily_random_messages())
     # 启动 bot
-    await dp.start_polling(bot)
+    await dp.start_polling(bot_clementine)
 
 
 def escape_markdown_v2(text: str) -> str:
