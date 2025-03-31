@@ -116,7 +116,7 @@ async def start_bot():
                         await bot_teddy.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
                     elif conversation.user == "clementine":
                         await bot_clementine.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
-            await asyncio.sleep(random.randint(60 * 60 * 3, 60 * 60 * 5))  # Sleep for a random 5-6 hours
+            await asyncio.sleep(random.randint(60 * 60 * 8, 60 * 60 * 14))  # Sleep for a random 5-6 hours
 
     asyncio.create_task(send_daily_random_messages())
     # 启动 bot
