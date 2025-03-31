@@ -108,7 +108,7 @@ async def start_bot():
                 )
                 for conversation in response.conversations:
                     # sleep conversation.delayTime seconds
-                    await asyncio.sleep(conversation.delayTime * 10)
+                    await asyncio.sleep(conversation.delayTime * 20)
                     if conversation.user == "maeve":
                         # use telegram bot api to send message
                         await bot_maeve.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
