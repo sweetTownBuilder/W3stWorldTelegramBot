@@ -64,7 +64,7 @@ class NewsClient:
             json_data: Mapping[str, str] | None = None,
             headers: Mapping[str, str] | None = None,
             data: FormData | None = None,
-    ) -> NewsResponse:
+    ) -> str:
         """Make request and return decoded json response."""
         session = await self._get_session()
 
@@ -92,17 +92,14 @@ class NewsClient:
                         if event_type == "agent_message":
                             message += data.get("answer", "")
                         elif event_type == "message_end":
-                            message_obj = json.loads(message)
-                            conversations = [
-                                Conversations(**conv) for conv in message_obj['conversations']
-                            ]
-                            return NewsResponse(
-                                conversations=conversations,
-                                conversation_id=data.get("conversation_id")
-                            )
+                            return message
+                        elif event_type == "workflow_finished":
+                            message = data.get("data", {"outputs": {"today_news": ""}}).get("outputs", {"today_news": ""}).get("today_news", "")
+
                     except json.JSONDecodeError:
                         continue
-            return NewsResponse(conversations=[], conversation_id='')
+            # return NewsResponse(conversations=[], conversation_id='')
+            return message
 
     async def close(self) -> None:
         """Graceful session close."""

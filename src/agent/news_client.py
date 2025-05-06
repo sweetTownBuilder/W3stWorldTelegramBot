@@ -19,10 +19,10 @@ class Dify(NewsClient):
             telegram_chat_type: str = 'chat',
             conversation_id: str = None,
             new_member_name: str | None = None,
-    ) -> NewsResponse:
+    ) -> str:
         return await self._make_streaming_request(
             'post',
-            '/v1/chat-messages',
+            '/v1/workflows/run',
             json_data={
                 "query": message,
                 "response_mode": 'streaming',

@@ -60,7 +60,7 @@ async def start_bot():
         elif chat.type == "private":
             result = str(user_id)
             mention_me = True
-        conversation_id: str|None = None
+        conversation_id: str | None = None
         if result:
             conversation_id = state_data.get(result)
             user_id = result
@@ -96,6 +96,43 @@ async def start_bot():
             if response.need_response:
                 await event.answer(escape_markdown_v2(response.message), parse_mode="MarkdownV2")
 
+    # async def send_daily_random_messages():
+    #     while True:
+    #         if conf.bot.tg_group_id:
+    #             response = await news_client.send_streaming_chat_message(
+    #                 message="get today news.",
+    #                 user_id=conf.bot.tg_group_id,
+    #                 conversation_id=None,
+    #                 new_member_name=None,
+    #                 telegram_chat_type="ask_for_news",
+    #             )
+    #             for conversation in response.conversations:
+    #                 # sleep conversation.delayTime seconds
+    #                 await asyncio.sleep(conversation.delayTime)
+    #                 if conversation.user == "maeve":
+    #                     # use telegram bot api to send message
+    #                     await bot_maeve.send_message(
+    #                         text=escape_markdown_v2(conversation.content),
+    #                         chat_id=conf.bot.tg_group_id,
+    #                         parse_mode="MarkdownV2",
+    #                         reply_to_message_id=481
+    #                     )
+    #                 elif conversation.user == "teddy":
+    #                     await bot_teddy.send_message(
+    #                         text=escape_markdown_v2(conversation.content),
+    #                         chat_id=conf.bot.tg_group_id,
+    #                         parse_mode="MarkdownV2",
+    #                         reply_to_message_id=481
+    #                     )
+    #                 elif conversation.user == "clementine":
+    #                     await bot_clementine.send_message(
+    #                         text=escape_markdown_v2(conversation.content),
+    #                         chat_id=conf.bot.tg_group_id,
+    #                         parse_mode="MarkdownV2",
+    #                         reply_to_message_id=481
+    #                     )
+    #         await asyncio.sleep(random.randint(60 * 60 * 8, 60 * 60 * 14))  # Sleep for a random 5-6 hours
+
     async def send_daily_random_messages():
         while True:
             if conf.bot.tg_group_id:
@@ -106,17 +143,9 @@ async def start_bot():
                     new_member_name=None,
                     telegram_chat_type="ask_for_news",
                 )
-                for conversation in response.conversations:
-                    # sleep conversation.delayTime seconds
-                    await asyncio.sleep(conversation.delayTime * 20)
-                    if conversation.user == "maeve":
-                        # use telegram bot api to send message
-                        await bot_maeve.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
-                    elif conversation.user == "teddy":
-                        await bot_teddy.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
-                    elif conversation.user == "clementine":
-                        await bot_clementine.send_message(text=escape_markdown_v2(conversation.content),chat_id=conf.bot.tg_group_id, parse_mode="MarkdownV2")
-            await asyncio.sleep(random.randint(60 * 60 * 8, 60 * 60 * 14))  # Sleep for a random 5-6 hours
+                await bot_teddy.send_message(text=escape_markdown_v2(response),
+                                       parse_mode="MarkdownV2",chat_id=conf.bot.tg_group_id)
+                await asyncio.sleep(random.randint(60 * 60 * 10, 60 * 60 * 18))  # Sleep for a random 5-6 hours
 
     asyncio.create_task(send_daily_random_messages())
     # 启动 bot
@@ -129,14 +158,14 @@ def escape_markdown_v2(text: str) -> str:
     """
     # 匹配 MarkdownV2 的核心结构（非贪婪匹配，优先处理链接）
     pattern = re.compile(
-        r'(\[.*?\]\(\S*?\))'      # 链接 [text](url)，URL中不允许空格
-        r'|(\*\*.*?\*\*)'          # 粗体 **text**
-        r'|(\*.*?\*)'              # 斜体 *text*
-        r'|(__.*?__)'              # 下划线 __text__
-        r'|(_.*?_)'                # 斜体 _text_
-        r'|(`.*?`)'                # 行内代码 `text`
-        r'|(```[\s\S]*?```)'       # 多行代码块
-        r'|\\n'                    # 换行
+        r'(\[.*?\]\(\S*?\))'  # 链接 [text](url)，URL中不允许空格
+        r'|(\*\*.*?\*\*)'  # 粗体 **text**
+        r'|(\*.*?\*)'  # 斜体 *text*
+        r'|(__.*?__)'  # 下划线 __text__
+        r'|(_.*?_)'  # 斜体 _text_
+        r'|(`.*?`)'  # 行内代码 `text`
+        r'|(```[\s\S]*?```)'  # 多行代码块
+        r'|\\n'  # 换行
         , re.DOTALL)
 
     parts = []
