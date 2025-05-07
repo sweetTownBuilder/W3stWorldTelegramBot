@@ -143,7 +143,7 @@ async def start_bot():
                     new_member_name=None,
                     telegram_chat_type="ask_for_news",
                 )
-                await bot_maeve.send_message(text=escape_markdown_v2(response),
+                await bot_clementine.send_message(text=escape_markdown_v2(response),
                                        parse_mode="MarkdownV2",chat_id=conf.bot.tg_group_id)
                 await asyncio.sleep(random.randint(60 * 60 * 10, 60 * 60 * 18))  # Sleep for a random 5-6 hours
 
