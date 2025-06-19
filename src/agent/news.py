@@ -3,19 +3,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import ssl
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from urllib.parse import urljoin
 
-import backoff
-from aiogram import loggers
-from aiohttp import ClientError, ClientSession, TCPConnector, FormData
-from ujson import dumps
+import requests
+from sseclient import SSEClient
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from yarl import URL
+
 
 @dataclass
 class Conversations:
@@ -23,97 +22,69 @@ class Conversations:
     content: str
     delayTime: int
 
+
 @dataclass
 class NewsResponse:
     conversations: list[Conversations]
     conversation_id: str
 
 
-# Taken from here: https://github.com/Olegt0rr/WebServiceTemplate/blob/main/app/core/base_client.py
 class NewsClient:
-    """Represents base API client."""
+    """基于 sseclient-py 的 SSE 客户端"""
 
     def __init__(self, base_url: str | URL) -> None:
-        self._base_url = base_url
-        self._session: ClientSession | None = None
+        self._base_url = str(base_url)
         self.log = logging.getLogger(self.__class__.__name__)
 
-    async def _get_session(self) -> ClientSession:
-        """Get aiohttp session with cache."""
-        if self._session is None:
-            ssl_context = ssl.SSLContext()
-            connector = TCPConnector(ssl_context=ssl_context)
-            self._session = ClientSession(
-                base_url=self._base_url,
-                connector=connector,
-                json_serialize=dumps,
-            )
-
-        return self._session
-
-    @backoff.on_exception(
-        backoff.expo,
-        ClientError,
-        max_time=60,
-    )
     async def _make_streaming_request(
             self,
             method: str,
-            url: str | URL,
+            url: str,
             params: Mapping[str, str] | None = None,
             json_data: Mapping[str, str] | None = None,
             headers: Mapping[str, str] | None = None,
-            data: FormData | None = None,
+            data: Mapping[str, str] | None = None,
     ) -> str:
-        """Make request and return decoded json response."""
-        session = await self._get_session()
+        """
+        在后台线程里使用 requests + sseclient-py，完成 POST/GET + SSE 流式消费。
+        """
 
-        self.log.debug(
-            "Making request %r %r with json %r and params %r",
-            method,
-            url,
-            json_data,
-            params,
-        )
-        async with session.request(
-                method, url, params=params, json=json_data, headers=headers, data=data
-        ) as response:
-            status = response.status
-            if status != 200:
-                s = await response.text()
-                raise ClientError(f"Got status {status} for {method} {url}: {s}")
+        def _sync_sse() -> str:
+            full_url = urljoin(self._base_url, url)
+            self.log.debug("sync request %s %s, json=%r, params=%r", method, full_url, json_data, params)
+
+            # 发起同步请求
+            resp = requests.request(
+                method,
+                full_url,
+                params=params,
+                json=json_data,
+                data=data,
+                headers={**(headers or {}), "Accept": "text/event-stream"},
+                stream=True,
+            )
+            resp.raise_for_status()
+
+            client = SSEClient(resp)
             message = ""
-            async for line in response.content:
-                if line:
-                    try:
-                        data = json.loads(line.decode("utf-8").replace("data: ", ""))
-                        event_type = data.get("event")
-                        # loggers.dispatcher.info(event_type)
-                        if event_type == "agent_message":
-                            message += data.get("answer", "")
-                        elif event_type == "message_end":
-                            return message
-                        elif event_type == "workflow_finished":
-                            message = data.get("data", {"outputs": {"today_news": ""}}).get("outputs", {"today_news": ""}).get("today_news", "")
+            for evt in client.events():
+                try:
+                    payload = json.loads(evt.data)
+                except (ValueError, TypeError):
+                    continue
 
-                    except json.JSONDecodeError:
-                        continue
-            # return NewsResponse(conversations=[], conversation_id='')
+                event_type = payload.get("event")
+                if event_type == "agent_message":
+                    message += payload.get("answer", "")
+                elif event_type == "message_end":
+                    break
+                elif event_type == "workflow_finished":
+                    # 如果 workflow_finished 后面还有文本输出，直接取它
+                    out = payload.get("data", {}).get("outputs", {}).get("text", "")
+                    message = out
+                    break
+
             return message
 
-    async def close(self) -> None:
-        """Graceful session close."""
-        if not self._session:
-            self.log.debug("There's not session to close.")
-            return
-
-        if self._session.closed:
-            self.log.debug("Session already closed.")
-            return
-
-        await self._session.close()
-        self.log.debug("Session successfully closed.")
-
-        # Wait 250 ms for the underlying SSL connections to close
-        # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-        await asyncio.sleep(0.25)
+        # 切回 asyncio
+        return await asyncio.to_thread(_sync_sse)

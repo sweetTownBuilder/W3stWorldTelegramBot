@@ -18,8 +18,8 @@ from src.configuration import conf
 async def start_bot():
     """启动 bot 并监听消息"""
     bot_clementine = Bot(token=conf.bot.token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
-    bot_maeve = Bot(token=conf.bot.maeve_token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
-    bot_teddy = Bot(token=conf.bot.teddy_token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
+    # bot_maeve = Bot(token=conf.bot.maeve_token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
+    # bot_teddy = Bot(token=conf.bot.teddy_token, default=DefaultBotProperties(parse_mode='MarkdownV2'))
     dp = Dispatcher()  # 创建 Dispatcher（消息管理器）
     dify: Dify = Dify(conf.dify.api_key, conf.dify.base_url)
     news_client: NewsDify = NewsDify(conf.news.api_key, conf.news.base_url)
