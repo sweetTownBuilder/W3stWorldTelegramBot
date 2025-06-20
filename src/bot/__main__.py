@@ -31,7 +31,7 @@ async def start_bot():
 
     @dp.message(Command("help"))
     async def help_handler(message: Message):
-        await message.answer(text = escape_markdown_v2("支持的命令：\n/start - 启动机器人\n/help - 获取帮助"))
+        await message.answer(text = escape_markdown_v2("支持的命令：\n/start - 启动机器人\n/help - 获取帮助 \n @我 并向我提问来获取更多帮助"), parse_mode="MarkdownV2")
 
     @dp.message()
     async def echo_handler(message: Message, state: FSMContext):
@@ -152,7 +152,7 @@ async def start_bot():
                 )
                 await bot_clementine.send_message(text=escape_markdown_v2(response),
                                        parse_mode="MarkdownV2",chat_id=conf.bot.tg_group_id)
-                await asyncio.sleep(random.randint(60 * 2, 60 * 5))  # Sleep for a random 5-6 hours
+                await asyncio.sleep(random.randint(60 * 60 * 20, 60 * 60 * 24))  # Sleep for a random 5-6 hours
 
     asyncio.create_task(send_daily_random_messages())
     # 启动 bot
