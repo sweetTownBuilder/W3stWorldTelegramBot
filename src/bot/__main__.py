@@ -31,7 +31,7 @@ async def start_bot():
 
     @dp.message(Command("help"))
     async def help_handler(message: Message):
-        await message.answer("支持的命令：\n/start - 启动机器人\n/help - 获取帮助")
+        await message.answer(text = escape_markdown_v2("支持的命令：\n/start - 启动机器人\n/help - 获取帮助"))
 
     @dp.message()
     async def echo_handler(message: Message, state: FSMContext):
@@ -47,10 +47,17 @@ async def start_bot():
 
             # 检测是否被@提及
             if message.entities:
+                bot_username = (await bot_clementine.get_me()).username
                 for entity in message.entities:
-                    if entity.type in [MessageEntityType.MENTION, MessageEntityType.TEXT_MENTION]:
-                        mention_me = True
-                        break
+                    if entity.type == MessageEntityType.MENTION:
+                        mention_text = message.text[entity.offset:entity.offset + entity.length]
+                        if mention_text.lstrip('@').lower() == bot_username.lower():
+                            mention_me = True
+                            break
+                    elif entity.type == MessageEntityType.TEXT_MENTION:
+                        if entity.user and entity.user.id == (await bot_clementine.get_me()).id:
+                            mention_me = True
+                            break
 
             if mention_me:
                 result = f"{chat_id}-{user_id}"
@@ -145,7 +152,7 @@ async def start_bot():
                 )
                 await bot_clementine.send_message(text=escape_markdown_v2(response),
                                        parse_mode="MarkdownV2",chat_id=conf.bot.tg_group_id)
-                await asyncio.sleep(random.randint(60 * 60 * 10, 60 * 60 * 18))  # Sleep for a random 5-6 hours
+                await asyncio.sleep(random.randint(60 * 2, 60 * 5))  # Sleep for a random 5-6 hours
 
     asyncio.create_task(send_daily_random_messages())
     # 启动 bot
